@@ -9,10 +9,11 @@ services:
       - SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
-      - PORT=3001
-    restart: unless-stopped
+      - PORT=3002
+    restart: on-failure:3
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -31,6 +32,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d trackr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   pgdata:
