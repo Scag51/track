@@ -9,7 +9,6 @@ services:
       - SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
-      - PORT=3002
     restart: on-failure:3
     depends_on:
       db:
