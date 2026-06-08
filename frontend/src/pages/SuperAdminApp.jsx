@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api.js';
+import PublicDashboard from './PublicDashboard.jsx';
 import './SuperAdminApp.css';
 
 const TABS = [
@@ -16,6 +17,32 @@ const DEFAULT_SOURCES = [
   { label: 'Bouche à oreille', icon: '💬', color: '#e8c97a' },
   { label: 'Fidèle / Autre',   icon: '⭐', color: '#888888' },
 ];
+
+const EMOJI_OPTIONS = [
+  '📻','📰','🪧','🌐','💬','⭐','📱','🎯','🏪','🎪','📺','📡',
+  '🤝','👥','💼','🎁','📮','✉️','🔍','💡','🗺️','📍','🏠','🚗',
+];
+
+function EmojiPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="sa-emoji-wrap">
+      <button type="button" className="sa-emoji-btn field-input" onClick={() => setOpen(o => !o)}>
+        {value || '📢'} <span className="sa-emoji-arrow">▾</span>
+      </button>
+      {open && (
+        <div className="sa-emoji-dropdown">
+          {EMOJI_OPTIONS.map(e => (
+            <button key={e} type="button" className={`sa-emoji-opt ${value===e?'active':''}`}
+              onClick={() => { onChange(e); setOpen(false); }}>
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SuperAdminApp({ user, onLogout }) {
   const [tab, setTab] = useState('overview');
@@ -38,7 +65,6 @@ export default function SuperAdminApp({ user, onLogout }) {
 
   return (
     <div className="sa-shell">
-      {/* Header */}
       <header className="sa-header">
         <div className="sa-header-inner">
           <div className="sa-logo">
@@ -64,9 +90,7 @@ export default function SuperAdminApp({ user, onLogout }) {
           {tab !== 'client-detail' && (
             <nav className="sa-tabs">
               {TABS.map(t => (
-                <button key={t.id}
-                  className={`sa-tab ${tab===t.id?'active':''}`}
-                  onClick={() => setTab(t.id)}>
+                <button key={t.id} className={`sa-tab ${tab===t.id?'active':''}`} onClick={() => setTab(t.id)}>
                   {t.label}
                 </button>
               ))}
@@ -80,10 +104,7 @@ export default function SuperAdminApp({ user, onLogout }) {
           )}
 
           <div className="sa-header-right">
-            <div className="sa-user-badge">
-              <div className="sa-user-dot" />
-              {user.name || user.email}
-            </div>
+            <div className="sa-user-badge"><div className="sa-user-dot" />{user.name || user.email}</div>
             <button className="btn btn-ghost sa-logout" onClick={onLogout}>Déconnexion</button>
           </div>
         </div>
@@ -92,7 +113,7 @@ export default function SuperAdminApp({ user, onLogout }) {
       <main className="sa-main">
         {tab === 'overview'      && <OverviewTab stats={globalStats} clients={clients} onOpenClient={openClient} />}
         {tab === 'clients'       && <ClientsTab clients={clients} onOpenClient={openClient} onRefresh={refreshClients} />}
-        {tab === 'nouveau'       && <NewClientTab onCreated={(c) => { refreshClients(); setTab('clients'); }} />}
+        {tab === 'nouveau'       && <NewClientTab onCreated={() => { refreshClients(); setTab('clients'); }} />}
         {tab === 'client-detail' && selectedClient && (
           <ClientDetailTab
             client={selectedClient}
@@ -108,19 +129,21 @@ export default function SuperAdminApp({ user, onLogout }) {
 // ── Vue globale ───────────────────────────────────────────────
 
 function OverviewTab({ stats, clients, onOpenClient }) {
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const selectedClient = clients.find(c => c.id === parseInt(selectedClientId));
+
   return (
     <div className="sa-section">
       <div className="sa-page-header">
         <h1>Vue d'ensemble</h1>
         <p>Tous vos clients Trackr en un coup d'œil</p>
       </div>
-
       {stats && (
         <div className="sa-kpis">
           {[
-            { label: 'Clients actifs',    value: stats.total_clients, color: '#222339' },
-            { label: 'Saisies totales',   value: parseInt(stats.total_entries).toLocaleString('fr-FR'), color: '#2563eb' },
-            { label: 'CA total tracké',   value: parseFloat(stats.total_ca) > 0 ? parseFloat(stats.total_ca).toLocaleString('fr-FR',{maximumFractionDigits:0})+' €' : '—', color: '#16a34a' },
+            { label: 'Clients actifs',  value: stats.total_clients, color: '#222339' },
+            { label: 'Saisies totales', value: parseInt(stats.total_entries).toLocaleString('fr-FR'), color: '#2563eb' },
+            { label: 'CA total tracké', value: parseFloat(stats.total_ca) > 0 ? parseFloat(stats.total_ca).toLocaleString('fr-FR',{maximumFractionDigits:0})+' €' : '—', color: '#16a34a' },
           ].map((k,i) => (
             <div key={i} className="sa-kpi card" style={{ borderLeftColor: k.color }}>
               <div className="sa-kpi-val" style={{ color: k.color }}>{k.value}</div>
@@ -136,8 +159,7 @@ function OverviewTab({ stats, clients, onOpenClient }) {
           <div className="sa-perf-grid">
             {stats.by_client.map((c,i) => (
               <div key={i} className="sa-perf-card card"
-                onClick={() => { const found = clients.find(cl => cl.id === c.id); if(found) onOpenClient(found); }}
-                style={{ cursor:'pointer' }}>
+                onClick={() => { const found = clients.find(cl => cl.id === c.id); if(found) onOpenClient(found); }}>
                 <div className="sa-perf-header">
                   <div className="sa-perf-dot" style={{ background: c.primary_color }} />
                   <span className="sa-perf-name">{c.name}</span>
@@ -153,13 +175,51 @@ function OverviewTab({ stats, clients, onOpenClient }) {
                     <div className="sa-perf-lbl">CA</div>
                   </div>
                 </div>
-                <div className="sa-perf-url">
-                  <code>track.qoma.fr/c/{c.slug}</code>
-                </div>
+                <div className="sa-perf-url"><code>track.qoma.fr/c/{c.slug}</code></div>
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {/* Sélecteur dashboard client */}
+      {clients.length > 0 && (
+        <div className="sa-dash-section">
+          <div className="sa-dash-selector card">
+            <div className="sa-dash-selector-inner">
+              <div>
+                <div className="sa-dc-title" style={{ marginBottom: 4 }}>Dashboard client</div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Sélectionnez un client pour afficher son tableau de bord complet</p>
+              </div>
+              <select className="field-input sa-client-select"
+                value={selectedClientId}
+                onChange={e => setSelectedClientId(e.target.value)}>
+                <option value="">— Choisir un client —</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {selectedClient && (
+            <div className="sa-client-dash fade-in">
+              <div className="sa-client-dash-header">
+                <div className="sa-perf-dot" style={{ background: selectedClient.primary_color, width: 14, height: 14 }} />
+                <h2>{selectedClient.name}</h2>
+                <a href={`/c/${selectedClient.slug}`} target="_blank" rel="noopener noreferrer" className="sa-detail-url">
+                  /c/{selectedClient.slug} ↗
+                </a>
+              </div>
+              <PublicDashboard
+                slug={null}
+                client={selectedClient}
+                isAdmin={true}
+                clientId={selectedClient.id}
+              />
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -167,7 +227,7 @@ function OverviewTab({ stats, clients, onOpenClient }) {
 
 // ── Liste clients ─────────────────────────────────────────────
 
-function ClientsTab({ clients, onOpenClient, onRefresh }) {
+function ClientsTab({ clients, onOpenClient }) {
   return (
     <div className="sa-section">
       <div className="sa-page-header">
@@ -175,11 +235,7 @@ function ClientsTab({ clients, onOpenClient, onRefresh }) {
         <p>{clients.length} client{clients.length!==1?'s':''} configuré{clients.length!==1?'s':''}</p>
       </div>
       <div className="sa-clients-list">
-        {clients.length === 0 && (
-          <div className="sa-empty card">
-            <p>Aucun client encore. Créez votre premier client !</p>
-          </div>
-        )}
+        {clients.length === 0 && <div className="sa-empty card"><p>Aucun client. Créez votre premier client !</p></div>}
         {clients.map(c => (
           <div key={c.id} className="sa-client-row card" onClick={() => onOpenClient(c)}>
             <div className="sa-cr-left">
@@ -191,7 +247,9 @@ function ClientsTab({ clients, onOpenClient, onRefresh }) {
                   <span>·</span>
                   <span>{c.total_locations} magasin{c.total_locations!==1?'s':''}</span>
                   <span>·</span>
-                  <span>{c.total_users} utilisateur{c.total_users!==1?'s':''}</span>
+                  <span className={`badge ${c.dashboard_pin ? 'badge-green' : 'badge-gray'}`}>
+                    {c.dashboard_pin ? '🔒 PIN actif' : '🔓 Sans PIN'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -220,14 +278,11 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
   const [sources, setSources] = useState(client.sources.map(s => ({ ...s })));
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
-  const [newUser, setNewUser] = useState({ email:'', password:'', name:'', role:'staff' });
-  const [addingUser, setAddingUser] = useState(false);
   const dragItem = useRef(null);
   const dragOver = useRef(null);
 
   const setF = (k,v) => setForm(f => ({ ...f, [k]: v }));
-
-  const updateSource = (i, k, v) => setSources(ss => ss.map((s,j) => j===i ? {...s,[k]:v} : s));
+  const updateSource = (i,k,v) => setSources(ss => ss.map((s,j) => j===i ? {...s,[k]:v} : s));
   const addSource = () => setSources(ss => [...ss, { label:'', icon:'📢', color:'#888888' }]);
   const removeSource = i => setSources(ss => ss.filter((_,j) => j!==i));
 
@@ -257,23 +312,6 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
-  const addUser = async () => {
-    if (!newUser.email || !newUser.password) return;
-    setAddingUser(true);
-    try {
-      await api.adminAddUser(client.id, newUser);
-      setNewUser({ email:'', password:'', name:'', role:'staff' });
-      onRefresh();
-    } catch {}
-    setAddingUser(false);
-  };
-
-  const deleteUser = async (userId) => {
-    if (!confirm('Supprimer cet utilisateur ?')) return;
-    await api.adminDeleteUser(userId);
-    onRefresh();
-  };
-
   const deleteClient = async () => {
     if (!confirm(`Supprimer définitivement "${client.name}" et toutes ses données ?`)) return;
     await api.adminDeleteClient(client.id);
@@ -286,14 +324,16 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
         <div className="sa-detail-title">
           <div className="sa-detail-dot" style={{ background: form.primary_color }} />
           <h1>{client.name}</h1>
-          <code className="sa-detail-url">track.qoma.fr/c/{client.slug}</code>
+          <a href={`/c/${client.slug}`} target="_blank" rel="noopener noreferrer" className="sa-detail-url">
+            track.qoma.fr/c/{client.slug} ↗
+          </a>
         </div>
         <div className="sa-detail-actions">
           {!editing ? (
             <button className="btn btn-primary" onClick={() => setEditing(true)}>✏️ Modifier</button>
           ) : (
             <>
-              <button className="btn btn-ghost" onClick={() => setEditing(false)}>Annuler</button>
+              <button className="btn btn-ghost" onClick={() => { setEditing(false); setSaveStatus(null); }}>Annuler</button>
               <button className="btn btn-green" onClick={save} disabled={saving}>
                 {saving ? <span className="spinner" /> : saveStatus==='ok' ? '✓ Sauvegardé' : 'Sauvegarder'}
               </button>
@@ -319,22 +359,34 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
                   <code>{client.primary_color}</code>
                 </div>
               </div>
-              <div className="sa-info-row"><span>Logo URL</span><span className="sa-info-val">{client.logo_url || '—'}</span></div>
-              <div className="sa-info-row"><span>PIN Dashboard</span><strong>{client.dashboard_pin ? '••••' : '—'}</strong></div>
+              <div className="sa-info-row"><span>Logo</span>
+                {client.logo_url
+                  ? <img src={client.logo_url} alt="" style={{height:32,borderRadius:4}} />
+                  : <span className="sa-info-muted">—</span>}
+              </div>
+              <div className="sa-info-row"><span>PIN Dashboard</span>
+                <span className={`badge ${client.dashboard_pin ? 'badge-green' : 'badge-gray'}`}>
+                  {client.dashboard_pin ? '🔒 Actif (••••)' : '🔓 Non configuré'}
+                </span>
+              </div>
             </div>
           ) : (
             <div className="sa-edit-fields">
-              <div><label className="field-label">Nom du client</label><input className="field-input" value={form.name} onChange={e => setF('name',e.target.value)} /></div>
-              <div><label className="field-label">Slug (URL)</label><input className="field-input" value={form.slug} onChange={e => setF('slug',e.target.value)} /></div>
-              <div>
-                <label className="field-label">Couleur principale</label>
+              <div><label className="field-label">Nom du client</label>
+                <input className="field-input" value={form.name} onChange={e => setF('name',e.target.value)} /></div>
+              <div><label className="field-label">Slug (URL)</label>
+                <input className="field-input" value={form.slug} onChange={e => setF('slug',e.target.value)} /></div>
+              <div><label className="field-label">Couleur principale</label>
                 <div style={{display:'flex',gap:8,alignItems:'center'}}>
                   <input type="color" className="sa-color-input" value={form.primary_color} onChange={e => setF('primary_color',e.target.value)} />
                   <input className="field-input" value={form.primary_color} onChange={e => setF('primary_color',e.target.value)} />
                 </div>
               </div>
-              <div><label className="field-label">URL Logo</label><input className="field-input" placeholder="https://..." value={form.logo_url} onChange={e => setF('logo_url',e.target.value)} /></div>
-              <div><label className="field-label">Code PIN Dashboard (4 chiffres)</label><input className="field-input" type="text" inputMode="numeric" maxLength={4} placeholder="1234" value={form.dashboard_pin} onChange={e => setF('dashboard_pin',e.target.value.replace(/\D/,''))} /></div>
+              <div><label className="field-label">URL Logo</label>
+                <input className="field-input" placeholder="https://..." value={form.logo_url} onChange={e => setF('logo_url',e.target.value)} /></div>
+              <div><label className="field-label">PIN Dashboard <span className="sa-optional">(4 chiffres — protège l'accès aux stats)</span></label>
+                <input className="field-input" type="text" inputMode="numeric" maxLength={4} placeholder="1234"
+                  value={form.dashboard_pin} onChange={e => setF('dashboard_pin',e.target.value.replace(/\D/,''))} /></div>
             </div>
           )}
         </div>
@@ -355,7 +407,7 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
                   <button className="btn btn-danger sa-del-btn" onClick={() => setLocations(ls => ls.filter((_,j)=>j!==i))}>✕</button>
                 </div>
               ))}
-              <button className="btn btn-ghost sa-add-btn" onClick={() => setLocations(ls => [...ls,''])}>+ Ajouter un magasin</button>
+              <button className="btn btn-ghost sa-add-btn" onClick={() => setLocations(ls => [...ls,''])}>+ Ajouter</button>
             </div>
           )}
         </div>
@@ -364,7 +416,7 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
         <div className="card sa-detail-card sa-detail-card-full">
           <div className="sa-dc-title">
             Sources média
-            {editing && <span className="sa-dc-hint">Glisser-déposer pour réordonner</span>}
+            {editing && <span className="sa-dc-hint">Glisser pour réordonner</span>}
           </div>
           {!editing ? (
             <div className="sa-sources-display">
@@ -381,8 +433,7 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
                   draggable onDragStart={() => onDragStart(i)} onDragEnter={() => onDragEnter(i)}
                   onDragEnd={onDragEnd} onDragOver={e => e.preventDefault()}>
                   <span className="sa-drag-handle">⠿</span>
-                  <input className="field-input sa-src-icon" value={s.icon} placeholder="📢"
-                    onChange={e => updateSource(i,'icon',e.target.value)} />
+                  <EmojiPicker value={s.icon} onChange={v => updateSource(i,'icon',v)} />
                   <input className="field-input sa-src-label" value={s.label} placeholder="Nom de la source"
                     onChange={e => updateSource(i,'label',e.target.value)} />
                   <input type="color" className="sa-color-input" value={s.color}
@@ -393,42 +444,6 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
               <button className="btn btn-ghost sa-add-btn" onClick={addSource}>+ Ajouter une source</button>
             </div>
           )}
-        </div>
-
-        {/* Utilisateurs */}
-        <div className="card sa-detail-card sa-detail-card-full">
-          <div className="sa-dc-title">Utilisateurs</div>
-          <div className="sa-users-table">
-            <table>
-              <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Créé le</th><th></th></tr></thead>
-              <tbody>
-                {client.users.map(u => (
-                  <tr key={u.id}>
-                    <td>{u.name||'—'}</td>
-                    <td><code>{u.email}</code></td>
-                    <td><span className={`badge ${u.role==='admin'?'badge-green':'badge-gray'}`}>{u.role}</span></td>
-                    <td className="sa-date">{new Date(u.created_at).toLocaleDateString('fr-FR')}</td>
-                    <td><button className="btn btn-danger" onClick={() => deleteUser(u.id)}>✕</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="sa-add-user">
-            <div className="sa-dc-title" style={{marginTop:20}}>Ajouter un utilisateur</div>
-            <div className="sa-add-user-form">
-              <input className="field-input" placeholder="Nom" value={newUser.name} onChange={e => setNewUser(u => ({...u,name:e.target.value}))} />
-              <input className="field-input" type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser(u => ({...u,email:e.target.value}))} />
-              <input className="field-input" type="password" placeholder="Mot de passe" value={newUser.password} onChange={e => setNewUser(u => ({...u,password:e.target.value}))} />
-              <select className="field-input" value={newUser.role} onChange={e => setNewUser(u => ({...u,role:e.target.value}))}>
-                <option value="staff">Staff (vendeuse)</option>
-                <option value="admin">Admin (direction)</option>
-              </select>
-              <button className="btn btn-primary" onClick={addUser} disabled={addingUser}>
-                {addingUser ? <span className="spinner" /> : 'Créer'}
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Danger zone */}
@@ -450,7 +465,10 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
 // ── Nouveau client ────────────────────────────────────────────
 
 function NewClientTab({ onCreated }) {
-  const [form, setForm] = useState({ name:'', slug:'', primary_color:'#3CE65F', logo_url:'', dashboard_pin:'', admin_email:'', admin_password:'', admin_name:'' });
+  const [form, setForm] = useState({
+    name:'', slug:'', primary_color:'#3CE65F', logo_url:'', dashboard_pin:'',
+    admin_email:'equinoxes-internal@equinoxes.fr', admin_password:'trackr-internal-2024', admin_name:'Admin',
+  });
   const [locationsRaw, setLocationsRaw] = useState('');
   const [sources, setSources] = useState(DEFAULT_SOURCES);
   const [loading, setLoading] = useState(false);
@@ -460,7 +478,6 @@ function NewClientTab({ onCreated }) {
 
   const setF = (k,v) => setForm(f => ({...f,[k]:v}));
   const autoSlug = name => name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-
   const updateSource = (i,k,v) => setSources(ss => ss.map((s,j) => j===i?{...s,[k]:v}:s));
   const addSource = () => setSources(ss => [...ss, { label:'', icon:'📢', color:'#888888' }]);
   const removeSource = i => setSources(ss => ss.filter((_,j) => j!==i));
@@ -476,11 +493,21 @@ function NewClientTab({ onCreated }) {
   };
 
   const submit = async () => {
-    if (!form.name||!form.slug||!form.admin_email||!form.admin_password) { setError('Tous les champs obligatoires (*) doivent être remplis'); return; }
+    if (!form.name || !form.slug) { setError('Le nom et le slug sont requis'); return; }
     setLoading(true); setError('');
     try {
       const locations = locationsRaw.split('\n').map(s=>s.trim()).filter(Boolean);
-      const result = await api.adminCreateClient({ ...form, locations, sources: sources.filter(s=>s.label) });
+      // Génère un email/password interne unique pour éviter les conflits
+      const internalEmail = `client-${form.slug}-${Date.now()}@trackr.internal`;
+      const internalPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+      const result = await api.adminCreateClient({
+        ...form,
+        locations,
+        sources: sources.filter(s=>s.label),
+        admin_email: internalEmail,
+        admin_password: internalPassword,
+        admin_name: form.name,
+      });
       onCreated(result);
     } catch(e) { setError(e.message); }
     setLoading(false);
@@ -490,11 +517,10 @@ function NewClientTab({ onCreated }) {
     <div className="sa-section">
       <div className="sa-page-header">
         <h1>Nouveau client</h1>
-        <p>Configurer un nouveau compte Trackr</p>
+        <p>Accès par URL publique + PIN dashboard — aucun compte utilisateur requis</p>
       </div>
 
       <div className="sa-new-form">
-        {/* Infos */}
         <div className="card sa-nc-card">
           <div className="sa-dc-title">Informations client</div>
           <div className="sa-nc-fields">
@@ -523,14 +549,13 @@ function NewClientTab({ onCreated }) {
               <input className="field-input" placeholder="https://client.fr/logo.png" value={form.logo_url} onChange={e => setF('logo_url',e.target.value)} />
             </div>
             <div>
-              <label className="field-label">PIN Dashboard <span className="sa-optional">(4 chiffres)</span></label>
+              <label className="field-label">PIN Dashboard <span className="sa-optional">(4 chiffres — protège les stats)</span></label>
               <input className="field-input" type="text" inputMode="numeric" maxLength={4} placeholder="1234"
                 value={form.dashboard_pin} onChange={e => setF('dashboard_pin',e.target.value.replace(/\D/,''))} />
             </div>
           </div>
         </div>
 
-        {/* Magasins */}
         <div className="card sa-nc-card">
           <div className="sa-dc-title">Points de vente <span className="sa-optional">(un par ligne)</span></div>
           <textarea className="field-input sa-textarea" rows={4}
@@ -538,7 +563,6 @@ function NewClientTab({ onCreated }) {
             value={locationsRaw} onChange={e => setLocationsRaw(e.target.value)} />
         </div>
 
-        {/* Sources */}
         <div className="card sa-nc-card">
           <div className="sa-dc-title">Sources média <span className="sa-optional">(glisser pour réordonner)</span></div>
           <div className="sa-sources-edit">
@@ -547,8 +571,7 @@ function NewClientTab({ onCreated }) {
                 draggable onDragStart={() => onDragStart(i)} onDragEnter={() => onDragEnter(i)}
                 onDragEnd={onDragEnd} onDragOver={e => e.preventDefault()}>
                 <span className="sa-drag-handle">⠿</span>
-                <input className="field-input sa-src-icon" value={s.icon} placeholder="📢"
-                  onChange={e => updateSource(i,'icon',e.target.value)} />
+                <EmojiPicker value={s.icon} onChange={v => updateSource(i,'icon',v)} />
                 <input className="field-input sa-src-label" value={s.label} placeholder="Nom de la source"
                   onChange={e => updateSource(i,'label',e.target.value)} />
                 <input type="color" className="sa-color-input" value={s.color}
@@ -557,25 +580,6 @@ function NewClientTab({ onCreated }) {
               </div>
             ))}
             <button className="btn btn-ghost sa-add-btn" onClick={addSource}>+ Ajouter une source</button>
-          </div>
-        </div>
-
-        {/* Admin */}
-        <div className="card sa-nc-card">
-          <div className="sa-dc-title">Compte administrateur client *</div>
-          <div className="sa-nc-fields">
-            <div>
-              <label className="field-label">Nom</label>
-              <input className="field-input" placeholder="Direction Feuillâtre" value={form.admin_name} onChange={e => setF('admin_name',e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">Email *</label>
-              <input className="field-input" type="email" placeholder="direction@feuillatre.fr" value={form.admin_email} onChange={e => setF('admin_email',e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">Mot de passe *</label>
-              <input className="field-input" type="password" placeholder="Mot de passe sécurisé" value={form.admin_password} onChange={e => setF('admin_password',e.target.value)} />
-            </div>
           </div>
         </div>
 
