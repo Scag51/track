@@ -50,7 +50,7 @@ app.get('/api/me', requireAuth, async (req, res) => res.json({ user: req.user })
 // Config publique client
 app.get('/api/public/:slug/config', async (req, res) => {
   const { rows: [client] } = await pool.query(
-    `SELECT id, name, slug, primary_color, logo_url FROM clients WHERE slug=$1`, [req.params.slug]
+    `SELECT id, name, slug, primary_color, logo_url, dashboard_pin FROM clients WHERE slug=$1`, [req.params.slug]
   );
   if (!client) return res.status(404).json({ error: 'Client introuvable' });
   const { rows: locations } = await pool.query(`SELECT * FROM locations WHERE client_id=$1 ORDER BY name`, [client.id]);
