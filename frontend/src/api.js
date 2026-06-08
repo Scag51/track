@@ -28,6 +28,7 @@ export const api = {
   publicEntry: (slug, data) => req('POST', `/public/${slug}/entries`, data),
   publicPin: (slug, pin) => req('POST', `/public/${slug}/pin`, { pin }),
   publicStats: (slug, params={}) => req('GET', `/public/${slug}/stats?` + new URLSearchParams(params)),
+  publicAnalytics: (slug, params={}) => req('GET', `/public/${slug}/analytics?` + new URLSearchParams(params)),
   publicExportUrl: (slug, params={}) => BASE + `/public/${slug}/export?` + new URLSearchParams(params),
 
   // Admin
@@ -41,6 +42,7 @@ export const api = {
   adminDeleteUser: (userId) => req('DELETE', `/admin/users/${userId}`),
 
   stats: (params={}) => req('GET', '/stats?' + new URLSearchParams(params)),
+  analytics: (params={}) => req('GET', '/analytics?' + new URLSearchParams(params)),
   exportUrl: (params={}) => BASE + '/export?' + new URLSearchParams(params) + '&_t=' + getToken(),
 };
 
