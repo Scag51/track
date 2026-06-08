@@ -4,8 +4,7 @@ import PublicDashboard from './PublicDashboard.jsx';
 import './SuperAdminApp.css';
 
 const TABS = [
-  { id: 'overview', label: '🏠 Vue globale' },
-  { id: 'clients',  label: '🏪 Clients' },
+  { id: 'overview', label: '🏠 Clients' },
   { id: 'nouveau',  label: '＋ Nouveau client' },
 ];
 
@@ -112,13 +111,12 @@ export default function SuperAdminApp({ user, onLogout }) {
 
       <main className="sa-main">
         {tab === 'overview'      && <OverviewTab stats={globalStats} clients={clients} onOpenClient={openClient} />}
-        {tab === 'clients'       && <ClientsTab clients={clients} onOpenClient={openClient} onRefresh={refreshClients} />}
-        {tab === 'nouveau'       && <NewClientTab onCreated={() => { refreshClients(); setTab('clients'); }} />}
+        {tab === 'nouveau'       && <NewClientTab onCreated={() => { refreshClients(); setTab('overview'); }} />}
         {tab === 'client-detail' && selectedClient && (
           <ClientDetailTab
             client={selectedClient}
             onRefresh={async () => { const d = await api.adminClientDetail(selectedClient.id); setSelectedClient(d); }}
-            onDelete={() => { refreshClients(); setTab('clients'); setSelectedClient(null); }}
+            onDelete={() => { refreshClients(); setTab('overview'); setSelectedClient(null); }}
           />
         )}
       </main>
@@ -128,97 +126,107 @@ export default function SuperAdminApp({ user, onLogout }) {
 
 // ── Vue globale ───────────────────────────────────────────────
 
-function OverviewTab({ stats, clients, onOpenClient }) {
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const selectedClient = clients.find(c => c.id === parseInt(selectedClientId));
+function OverviewTab({ stats, clients }) {
+  const [activeClientId, setActiveClientId] = useState(null);
+  const activeClient = clients.find(c => c.id === activeClientId);
+  const statsByClient = stats?.by_client || [];
+
+  const toggleClient = (id) => setActiveClientId(prev => prev === id ? null : id);
 
   return (
     <div className="sa-section">
       <div className="sa-page-header">
-        <h1>Vue d'ensemble</h1>
-        <p>Tous vos clients Trackr en un coup d'œil</p>
+        <h1>Clients</h1>
+        <p>Cliquez sur un client pour afficher son dashboard</p>
       </div>
-      {stats && (
-        <div className="sa-kpis">
-          {[
-            { label: 'Clients actifs',  value: stats.total_clients, color: '#222339' },
-            { label: 'Saisies totales', value: parseInt(stats.total_entries).toLocaleString('fr-FR'), color: '#2563eb' },
-            { label: 'CA total tracké', value: parseFloat(stats.total_ca) > 0 ? parseFloat(stats.total_ca).toLocaleString('fr-FR',{maximumFractionDigits:0})+' €' : '—', color: '#16a34a' },
-          ].map((k,i) => (
-            <div key={i} className="sa-kpi card" style={{ borderLeftColor: k.color }}>
-              <div className="sa-kpi-val" style={{ color: k.color }}>{k.value}</div>
-              <div className="sa-kpi-label">{k.label}</div>
-            </div>
-          ))}
-        </div>
+
+      {clients.length === 0 && (
+        <div className="sa-empty card"><p>Aucun client. Créez votre premier client !</p></div>
       )}
 
-      {stats?.by_client?.length > 0 && (
-        <>
-          <h2 className="sa-section-subtitle">Performance par client</h2>
-          <div className="sa-perf-grid">
-            {stats.by_client.map((c,i) => (
-              <div key={i} className="sa-perf-card card"
-                onClick={() => { const found = clients.find(cl => cl.id === c.id); if(found) onOpenClient(found); }}>
-                <div className="sa-perf-header">
-                  <div className="sa-perf-dot" style={{ background: c.primary_color }} />
-                  <span className="sa-perf-name">{c.name}</span>
-                  <span className="sa-perf-arrow">→</span>
-                </div>
-                <div className="sa-perf-stats">
-                  <div className="sa-perf-stat">
-                    <div className="sa-perf-val">{c.entries}</div>
-                    <div className="sa-perf-lbl">saisies</div>
-                  </div>
-                  <div className="sa-perf-stat">
-                    <div className="sa-perf-val">{parseFloat(c.ca) > 0 ? parseFloat(c.ca).toFixed(0)+' €' : '—'}</div>
-                    <div className="sa-perf-lbl">CA</div>
-                  </div>
-                </div>
-                <div className="sa-perf-url"><code>track.qoma.fr/c/{c.slug}</code></div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Grid cards clients */}
+      <div className="sa-client-cards-grid">
+        {clients.map(c => {
+          const cStats = statsByClient.find(s => s.id === c.id) || {};
+          const isActive = activeClientId === c.id;
+          return (
+            <div key={c.id}
+              className={`sa-client-card card ${isActive ? 'active' : ''}`}
+              style={{ '--c-accent': c.primary_color }}
+              onClick={() => toggleClient(c.id)}>
 
-      {/* Sélecteur dashboard client */}
-      {clients.length > 0 && (
-        <div className="sa-dash-section">
-          <div className="sa-dash-selector card">
-            <div className="sa-dash-selector-inner">
-              <div>
-                <div className="sa-dc-title" style={{ marginBottom: 4 }}>Dashboard client</div>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Sélectionnez un client pour afficher son tableau de bord complet</p>
-              </div>
-              <select className="field-input sa-client-select"
-                value={selectedClientId}
-                onChange={e => setSelectedClientId(e.target.value)}>
-                <option value="">— Choisir un client —</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+              {/* Top bande couleur */}
+              <div className="sa-cc-bar" style={{ background: c.primary_color }} />
 
-          {selectedClient && (
-            <div className="sa-client-dash fade-in">
-              <div className="sa-client-dash-header">
-                <div className="sa-perf-dot" style={{ background: selectedClient.primary_color, width: 14, height: 14 }} />
-                <h2>{selectedClient.name}</h2>
-                <a href={`/c/${selectedClient.slug}`} target="_blank" rel="noopener noreferrer" className="sa-detail-url">
-                  /c/{selectedClient.slug} ↗
+              {/* Logo + nom */}
+              <div className="sa-cc-header">
+                {c.logo_url
+                  ? <img src={c.logo_url} alt={c.name} className="sa-cc-logo" />
+                  : <div className="sa-cc-initial" style={{ background: c.primary_color }}>
+                      {c.name.charAt(0).toUpperCase()}
+                    </div>
+                }
+                <div className="sa-cc-info">
+                  <div className="sa-cc-name">{c.name}</div>
+                  <code className="sa-cc-url">…/c/{c.slug}</code>
+                </div>
+                <div className={`sa-cc-chevron ${isActive ? 'open' : ''}`}>▾</div>
+              </div>
+
+              {/* KPIs mini */}
+              <div className="sa-cc-kpis">
+                <div className="sa-cc-kpi">
+                  <div className="sa-cc-kpi-val" style={{ color: c.primary_color }}>
+                    {parseInt(cStats.entries || 0).toLocaleString('fr-FR')}
+                  </div>
+                  <div className="sa-cc-kpi-lbl">saisies</div>
+                </div>
+                <div className="sa-cc-kpi">
+                  <div className="sa-cc-kpi-val" style={{ color: '#2563eb' }}>
+                    {parseFloat(cStats.ca || 0) > 0
+                      ? parseFloat(cStats.ca).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
+                      : '—'}
+                  </div>
+                  <div className="sa-cc-kpi-lbl">CA tracké</div>
+                </div>
+                <div className="sa-cc-kpi">
+                  <div className="sa-cc-kpi-val">{c.total_locations || 0}</div>
+                  <div className="sa-cc-kpi-lbl">magasin{c.total_locations > 1 ? 's' : ''}</div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="sa-cc-footer">
+                <span className={`badge ${c.dashboard_pin ? 'badge-green' : 'badge-gray'}`}>
+                  {c.dashboard_pin ? '🔒 PIN actif' : '🔓 Sans PIN'}
+                </span>
+                <a href={`/c/${c.slug}`} target="_blank" rel="noopener noreferrer"
+                  className="sa-cc-link" onClick={e => e.stopPropagation()}>
+                  Ouvrir ↗
                 </a>
               </div>
-              <PublicDashboard
-                slug={null}
-                client={selectedClient}
-                isAdmin={true}
-                clientId={selectedClient.id}
-              />
             </div>
-          )}
+          );
+        })}
+      </div>
+
+      {/* Dashboard client sélectionné */}
+      {activeClient && (
+        <div className="sa-client-dash fade-up">
+          <div className="sa-client-dash-header">
+            <div className="sa-cc-dot" style={{ background: activeClient.primary_color }} />
+            <h2>{activeClient.name}</h2>
+            <a href={`/c/${activeClient.slug}`} target="_blank" rel="noopener noreferrer" className="sa-detail-url">
+              track.qoma.fr/c/{activeClient.slug} ↗
+            </a>
+            <button className="btn btn-ghost sa-dash-close" onClick={() => setActiveClientId(null)}>✕ Fermer</button>
+          </div>
+          <PublicDashboard
+            slug={null}
+            client={activeClient}
+            isAdmin={true}
+            clientId={activeClient.id}
+          />
         </div>
       )}
     </div>
