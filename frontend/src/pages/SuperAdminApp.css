@@ -144,3 +144,35 @@
   .sa-header-inner { padding:0 14px; }
   .sa-logo-sub { display:none; }
 }
+
+/* Emoji picker */
+.sa-emoji-wrap { position: relative; flex-shrink: 0; }
+.sa-emoji-btn {
+  width: 60px !important; text-align: center; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+  font-size: 18px; padding: 8px !important;
+}
+.sa-emoji-arrow { font-size: 10px; color: var(--text-muted); }
+.sa-emoji-dropdown {
+  position: absolute; top: 100%; left: 0; z-index: 200;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--r); padding: 8px;
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 4px; box-shadow: var(--shadow-md); width: 200px;
+}
+.sa-emoji-opt {
+  background: none; border: none; font-size: 20px;
+  padding: 6px; border-radius: 6px; cursor: pointer; transition: background 0.15s;
+}
+.sa-emoji-opt:hover { background: var(--bg2); }
+.sa-emoji-opt.active { background: var(--bg2); outline: 2px solid var(--eq-green); }
+.sa-info-muted { color: var(--text-muted); font-size: 13px; }
+
+/* Dashboard client dans vue globale */
+.sa-dash-section { display: flex; flex-direction: column; gap: 16px; }
+.sa-dash-selector { padding: 18px 20px; }
+.sa-dash-selector-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.sa-client-select { max-width: 280px; }
+.sa-client-dash { display: flex; flex-direction: column; gap: 16px; }
+.sa-client-dash-header { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 2px solid var(--border); }
+.sa-client-dash-header h2 { font-size: 20px; font-weight: 800; color: var(--text); }
