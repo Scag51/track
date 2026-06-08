@@ -282,4 +282,100 @@ app.get('/api/export', requireAuth, async (req, res) => {
   await exportCSV(res, where, params, req.user.client_name || 'export');
 });
 
+// ═══════════════════════════════════════════════════════════════
+// ANALYTICS ENRICHIS
+// ═══════════════════════════════════════════════════════════════
+
+async function getAnalytics(clientId, from, to, locationId) {
+  const { where, params } = buildWhere(clientId, from, to, locationId);
+
+  // Jours de la semaine (0=dim, 1=lun, ..., 6=sam)
+  const byDow = await pool.query(`
+    SELECT EXTRACT(DOW FROM e.created_at) as dow,
+           COUNT(*) as count,
+           COALESCE(AVG(e.montant) FILTER (WHERE e.montant IS NOT NULL), 0) as avg_ca,
+           COALESCE(SUM(e.montant), 0) as total_ca
+    FROM entries e ${where}
+    GROUP BY dow ORDER BY dow ASC`, params);
+
+  // Heure de la journée
+  const byHour = await pool.query(`
+    SELECT EXTRACT(HOUR FROM e.created_at) as hour,
+           COUNT(*) as count
+    FROM entries e ${where}
+    GROUP BY hour ORDER BY hour ASC`, params);
+
+  // ROI par source (panier moyen, nb clients, CA total)
+  const sourceRoi = await pool.query(`
+    SELECT s.label, s.icon, s.color, s.id as source_id,
+           COUNT(e.id) as count,
+           COALESCE(SUM(e.montant), 0) as total_ca,
+           COALESCE(AVG(e.montant) FILTER (WHERE e.montant IS NOT NULL), 0) as avg_ca
+    FROM entries e JOIN sources s ON e.source_id=s.id ${where}
+    GROUP BY s.id ORDER BY total_ca DESC`, params);
+
+  // ROI croisé source × magasin
+  const sourceByLocation = await pool.query(`
+    SELECT l.name as location, l.id as location_id,
+           s.label as source, s.icon, s.color, s.id as source_id,
+           COUNT(e.id) as count,
+           COALESCE(SUM(e.montant), 0) as total_ca,
+           COALESCE(AVG(e.montant) FILTER (WHERE e.montant IS NOT NULL), 0) as avg_ca
+    FROM entries e
+    JOIN locations l ON e.location_id=l.id
+    JOIN sources s ON e.source_id=s.id
+    ${where} GROUP BY l.id, l.name, s.id, s.label, s.icon, s.color
+    ORDER BY l.name, total_ca DESC`, params);
+
+  // Panier moyen par magasin
+  const locationStats = await pool.query(`
+    SELECT l.name, l.id as location_id,
+           COUNT(e.id) as count,
+           COALESCE(SUM(e.montant), 0) as total_ca,
+           COALESCE(AVG(e.montant) FILTER (WHERE e.montant IS NOT NULL), 0) as avg_ca
+    FROM entries e JOIN locations l ON e.location_id=l.id ${where}
+    GROUP BY l.id ORDER BY count DESC`, params);
+
+  // Top CP par magasin
+  const cpByLocation = await pool.query(`
+    SELECT l.name as location, e.code_postal, COUNT(*) as count
+    FROM entries e JOIN locations l ON e.location_id=l.id
+    ${where} AND e.code_postal IS NOT NULL
+    GROUP BY l.name, e.code_postal ORDER BY l.name, count DESC`, params);
+
+  // Evolution semaine sur semaine
+  const weeklyTrend = await pool.query(`
+    SELECT DATE_TRUNC('week', e.created_at) as week,
+           COUNT(*) as count,
+           COALESCE(SUM(e.montant), 0) as ca
+    FROM entries e ${where}
+    GROUP BY week ORDER BY week ASC`, params);
+
+  return {
+    byDow: byDow.rows,
+    byHour: byHour.rows,
+    sourceRoi: sourceRoi.rows,
+    sourceByLocation: sourceByLocation.rows,
+    locationStats: locationStats.rows,
+    cpByLocation: cpByLocation.rows,
+    weeklyTrend: weeklyTrend.rows,
+  };
+}
+
+// Route analytics publique
+app.get('/api/public/:slug/analytics', async (req, res) => {
+  const { rows: [client] } = await pool.query(`SELECT id FROM clients WHERE slug=$1`, [req.params.slug]);
+  if (!client) return res.status(404).json({ error: 'Client introuvable' });
+  const { from, to, location_id } = req.query;
+  res.json(await getAnalytics(client.id, from, to, location_id));
+});
+
+// Route analytics admin
+app.get('/api/analytics', requireAuth, async (req, res) => {
+  const clientId = req.user.role === 'superadmin' ? req.query.client_id : req.user.client_id;
+  if (!clientId) return res.status(400).json({ error: 'client_id requis' });
+  const { from, to, location_id } = req.query;
+  res.json(await getAnalytics(clientId, from, to, location_id));
+});
+
 app.listen(PORT, () => console.log(`🚀 Trackr by Equinoxes — port ${PORT}`));
