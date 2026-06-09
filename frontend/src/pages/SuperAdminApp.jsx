@@ -126,7 +126,7 @@ export default function SuperAdminApp({ user, onLogout }) {
 
 // ── Vue globale ───────────────────────────────────────────────
 
-function OverviewTab({ stats, clients }) {
+function OverviewTab({ stats, clients, onOpenClient }) {
   const [activeClientId, setActiveClientId] = useState(null);
   const activeClient = clients.find(c => c.id === activeClientId);
   const statsByClient = stats?.by_client || [];
@@ -137,29 +137,25 @@ function OverviewTab({ stats, clients }) {
     <div className="sa-section">
       <div className="sa-page-header">
         <h1>Clients</h1>
-        <p>Cliquez sur un client pour afficher son dashboard</p>
+        <p>{clients.length} client{clients.length!==1?'s':''} · Cliquez sur une card pour voir le dashboard</p>
       </div>
 
       {clients.length === 0 && (
         <div className="sa-empty card"><p>Aucun client. Créez votre premier client !</p></div>
       )}
 
-      {/* Grid cards clients */}
       <div className="sa-client-cards-grid">
         {clients.map(c => {
           const cStats = statsByClient.find(s => s.id === c.id) || {};
           const isActive = activeClientId === c.id;
           return (
             <div key={c.id}
-              className={`sa-client-card card ${isActive ? 'active' : ''}`}
-              style={{ '--c-accent': c.primary_color }}
-              onClick={() => toggleClient(c.id)}>
+              className={`sa-client-card card ${isActive ? 'active' : ''} ${c.is_demo ? 'is-demo' : ''}`}
+              style={{ '--c-accent': c.primary_color }}>
 
-              {/* Top bande couleur */}
               <div className="sa-cc-bar" style={{ background: c.primary_color }} />
 
-              {/* Logo + nom */}
-              <div className="sa-cc-header">
+              <div className="sa-cc-header" onClick={() => toggleClient(c.id)}>
                 {c.logo_url
                   ? <img src={c.logo_url} alt={c.name} className="sa-cc-logo" />
                   : <div className="sa-cc-initial" style={{ background: c.primary_color }}>
@@ -167,14 +163,16 @@ function OverviewTab({ stats, clients }) {
                     </div>
                 }
                 <div className="sa-cc-info">
-                  <div className="sa-cc-name">{c.name}</div>
+                  <div className="sa-cc-name">
+                    {c.name}
+                    {c.is_demo && <span className="sa-cc-demo-badge">DÉMO</span>}
+                  </div>
                   <code className="sa-cc-url">…/c/{c.slug}</code>
                 </div>
                 <div className={`sa-cc-chevron ${isActive ? 'open' : ''}`}>▾</div>
               </div>
 
-              {/* KPIs mini */}
-              <div className="sa-cc-kpis">
+              <div className="sa-cc-kpis" onClick={() => toggleClient(c.id)}>
                 <div className="sa-cc-kpi">
                   <div className="sa-cc-kpi-val" style={{ color: c.primary_color }}>
                     {parseInt(cStats.entries || 0).toLocaleString('fr-FR')}
@@ -190,32 +188,37 @@ function OverviewTab({ stats, clients }) {
                   <div className="sa-cc-kpi-lbl">CA tracké</div>
                 </div>
                 <div className="sa-cc-kpi">
-                  <div className="sa-cc-kpi-val">{c.total_locations || 0}</div>
-                  <div className="sa-cc-kpi-lbl">magasin{c.total_locations > 1 ? 's' : ''}</div>
+                  <div className="sa-cc-kpi-val">{c.total_locations || 0}<span style={{fontSize:11,color:'var(--text-muted)'}}>/3</span></div>
+                  <div className="sa-cc-kpi-lbl">magasins</div>
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="sa-cc-footer">
                 <span className={`badge ${c.dashboard_pin ? 'badge-green' : 'badge-gray'}`}>
                   {c.dashboard_pin ? '🔒 PIN actif' : '🔓 Sans PIN'}
                 </span>
-                <a href={`/c/${c.slug}`} target="_blank" rel="noopener noreferrer"
-                  className="sa-cc-link" onClick={e => e.stopPropagation()}>
-                  Ouvrir ↗
-                </a>
+                <div className="sa-cc-actions">
+                  <a href={`/c/${c.slug}`} target="_blank" rel="noopener noreferrer"
+                    className="sa-cc-link" onClick={e => e.stopPropagation()}>
+                    Ouvrir ↗
+                  </a>
+                  <button className="sa-cc-edit-btn btn btn-ghost"
+                    onClick={e => { e.stopPropagation(); onOpenClient(c); }}>
+                    ✏️ Modifier
+                  </button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Dashboard client sélectionné */}
       {activeClient && (
         <div className="sa-client-dash fade-up">
           <div className="sa-client-dash-header">
             <div className="sa-cc-dot" style={{ background: activeClient.primary_color }} />
             <h2>{activeClient.name}</h2>
+            {activeClient.is_demo && <span className="sa-cc-demo-badge">DÉMO</span>}
             <a href={`/c/${activeClient.slug}`} target="_blank" rel="noopener noreferrer" className="sa-detail-url">
               track.qoma.fr/c/{activeClient.slug} ↗
             </a>
@@ -281,6 +284,7 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
     primary_color: client.primary_color || '#3CE65F',
     logo_url: client.logo_url || '',
     dashboard_pin: client.dashboard_pin || '',
+    is_demo: client.is_demo || false,
   });
   const [locations, setLocations] = useState(client.locations.map(l => l.name));
   const [sources, setSources] = useState(client.sources.map(s => ({ ...s })));
@@ -395,6 +399,13 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
               <div><label className="field-label">PIN Dashboard <span className="sa-optional">(4 chiffres — protège l'accès aux stats)</span></label>
                 <input className="field-input" type="text" inputMode="numeric" maxLength={4} placeholder="1234"
                   value={form.dashboard_pin} onChange={e => setF('dashboard_pin',e.target.value.replace(/\D/,''))} /></div>
+              <div className="sa-demo-toggle" style={{gridColumn:'1/-1'}}>
+                <label className="sa-demo-label">
+                  <input type="checkbox" checked={form.is_demo} onChange={e => setF('is_demo', e.target.checked)} />
+                  <span>Compte démo</span>
+                  <span className="sa-optional">— badge DÉMO + bouton souscription affiché sur la page client</span>
+                </label>
+              </div>
             </div>
           )}
         </div>
@@ -474,7 +485,7 @@ function ClientDetailTab({ client, onRefresh, onDelete }) {
 
 function NewClientTab({ onCreated }) {
   const [form, setForm] = useState({
-    name:'', slug:'', primary_color:'#3CE65F', logo_url:'', dashboard_pin:'',
+    name:'', slug:'', primary_color:'#3CE65F', logo_url:'', dashboard_pin:'', is_demo: false,
     admin_email:'equinoxes-internal@equinoxes.fr', admin_password:'trackr-internal-2024', admin_name:'Admin',
   });
   const [locationsRaw, setLocationsRaw] = useState('');
@@ -561,14 +572,27 @@ function NewClientTab({ onCreated }) {
               <input className="field-input" type="text" inputMode="numeric" maxLength={4} placeholder="1234"
                 value={form.dashboard_pin} onChange={e => setF('dashboard_pin',e.target.value.replace(/\D/,''))} />
             </div>
+            <div className="sa-demo-toggle">
+              <label className="sa-demo-label">
+                <input type="checkbox" checked={form.is_demo} onChange={e => setF('is_demo', e.target.checked)} />
+                <span>Compte démo</span>
+                <span className="sa-optional">— données fictives, badge DÉMO affiché, bouton souscription visible</span>
+              </label>
+            </div>
           </div>
         </div>
 
         <div className="card sa-nc-card">
-          <div className="sa-dc-title">Points de vente <span className="sa-optional">(un par ligne)</span></div>
+          <div className="sa-dc-title">Points de vente <span className="sa-optional">(un par ligne — max 3 pour l'offre standard)</span></div>
           <textarea className="field-input sa-textarea" rows={4}
             placeholder={"Soissons\nVillers-Cotterêts\nCrépy-en-Valois"}
-            value={locationsRaw} onChange={e => setLocationsRaw(e.target.value)} />
+            value={locationsRaw} onChange={e => {
+              const lines = e.target.value.split('\n');
+              if (lines.length <= 3) setLocationsRaw(e.target.value);
+            }} />
+          {locationsRaw.split('\n').filter(l=>l.trim()).length >= 3 && (
+            <div className="sa-limit-warning">⚠ Limite de 3 magasins atteinte — <a href="mailto:contact@equinoxes.fr">contactez-nous</a> pour un devis multi-sites</div>
+          )}
         </div>
 
         <div className="card sa-nc-card">
