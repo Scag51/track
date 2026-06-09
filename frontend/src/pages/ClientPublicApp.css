@@ -162,3 +162,30 @@
   .pub-fields-row { grid-template-columns: 1fr; }
   .pub-saisie-intro h1 { font-size: 22px; }
 }
+
+/* Bandeau démo */
+.pub-demo-banner {
+  background: var(--eq-navy);
+  position: sticky; top: 0; z-index: 200;
+}
+.pub-demo-inner {
+  max-width: 760px; margin: 0 auto; padding: 10px 20px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.pub-demo-badge {
+  background: var(--eq-green); color: var(--eq-navy);
+  font-family: 'Roboto Condensed', sans-serif; font-size: 11px;
+  font-weight: 800; letter-spacing: .12em; padding: 3px 8px;
+  border-radius: 4px; flex-shrink: 0;
+}
+.pub-demo-text {
+  font-size: 13px; color: rgba(255,255,255,0.7); flex: 1;
+}
+.pub-demo-cta {
+  background: var(--eq-green); color: var(--eq-navy);
+  font-family: 'Raleway', sans-serif; font-size: 13px; font-weight: 800;
+  padding: 8px 18px; border-radius: 8px; text-decoration: none;
+  white-space: nowrap; flex-shrink: 0; transition: filter 0.2s;
+  letter-spacing: .02em;
+}
+.pub-demo-cta:hover { filter: brightness(1.1); }
