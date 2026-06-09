@@ -15,6 +15,7 @@ export async function initDB() {
       logo_url TEXT,
       primary_color VARCHAR(10) DEFAULT '#3CE65F',
       dashboard_pin VARCHAR(10),
+      is_demo BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT NOW()
     );
 
@@ -66,6 +67,12 @@ export async function initDB() {
     DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='logo_url') THEN
         ALTER TABLE clients ADD COLUMN logo_url TEXT;
+      END IF;
+    END $$;
+
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='is_demo') THEN
+        ALTER TABLE clients ADD COLUMN is_demo BOOLEAN DEFAULT false;
       END IF;
     END $$;
   `);
