@@ -70,6 +70,22 @@ export default function ClientPublicApp({ slug }) {
 
   return (
     <div className="pub-shell">
+      {/* Bandeau démo */}
+      {config.client.is_demo && (
+        <div className="pub-demo-banner">
+          <div className="pub-demo-inner">
+            <span className="pub-demo-badge">DÉMO</span>
+            <span className="pub-demo-text">Vous consultez une démonstration de Trackr by Equinoxes</span>
+            <a
+              href="https://axonaut.com/public/cms/21696_M6MNFPWEPE9KCSNH/product/GNQV1ANJ69RVE81AJQDG7KSAVLB1VW5B"
+              target="_blank" rel="noopener noreferrer"
+              className="pub-demo-cta">
+              Démarrer — 29 € HT/mois →
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Header client */}
       <header className="pub-header" style={{ borderBottomColor: `color-mix(in srgb, var(--client) 30%, transparent)` }}>
         <div className="pub-header-inner">
