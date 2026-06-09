@@ -117,13 +117,17 @@ app.get('/api/admin/clients', requireAuth, requireRole('superadmin'), async (req
 });
 
 app.post('/api/admin/clients', requireAuth, requireRole('superadmin'), async (req, res) => {
-  const { name, slug, primary_color, logo_url, dashboard_pin, locations, sources, admin_email, admin_password, admin_name } = req.body;
+  const { name, slug, primary_color, logo_url, dashboard_pin, locations, sources, admin_email, admin_password, admin_name, is_demo } = req.body;
   if (!name || !slug || !admin_email || !admin_password) {
     return res.status(400).json({ error: 'name, slug, admin_email, admin_password requis' });
   }
+  // Limite 3 magasins
+  if (locations?.length > 3) {
+    return res.status(400).json({ error: 'Maximum 3 magasins pour l\'offre standard (29 €/mois). Contactez-nous pour un devis multi-sites.' });
+  }
   const client = await pool.query(
-    `INSERT INTO clients (name, slug, primary_color, logo_url, dashboard_pin) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [name, slug, primary_color || '#3CE65F', logo_url || null, dashboard_pin || null]
+    `INSERT INTO clients (name, slug, primary_color, logo_url, dashboard_pin, is_demo) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [name, slug, primary_color || '#3CE65F', logo_url || null, dashboard_pin || null, is_demo || false]
   );
   const clientId = client.rows[0].id;
   if (locations?.length) {
@@ -160,12 +164,17 @@ app.get('/api/admin/clients/:id', requireAuth, requireRole('superadmin'), async 
 
 // Modifier un client
 app.put('/api/admin/clients/:id', requireAuth, requireRole('superadmin'), async (req, res) => {
-  const { name, slug, primary_color, logo_url, dashboard_pin, locations, sources } = req.body;
+  const { name, slug, primary_color, logo_url, dashboard_pin, locations, sources, is_demo } = req.body;
   const clientId = req.params.id;
 
+  // Limite 3 magasins
+  if (locations !== undefined && locations.length > 3) {
+    return res.status(400).json({ error: 'Maximum 3 magasins pour l\'offre standard. Contactez-nous pour un devis multi-sites.' });
+  }
+
   await pool.query(
-    `UPDATE clients SET name=$1, slug=$2, primary_color=$3, logo_url=$4, dashboard_pin=$5 WHERE id=$6`,
-    [name, slug, primary_color, logo_url || null, dashboard_pin || null, clientId]
+    `UPDATE clients SET name=$1, slug=$2, primary_color=$3, logo_url=$4, dashboard_pin=$5, is_demo=$6 WHERE id=$7`,
+    [name, slug, primary_color, logo_url || null, dashboard_pin || null, is_demo || false, clientId]
   );
 
   // Remplacer magasins
